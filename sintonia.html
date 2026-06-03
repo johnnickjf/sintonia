@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>SINTONIA · Leia a mente de quem você ama</title>
+
+<!-- === PWA / MOBILE META === -->
+<meta name="description" content="Sintonia — o jogo brasileiro de leitura de mente em dupla ou família. Leia a dica, deslize o ponteiro e descubra onde está o alvo. 100% no navegador, feito pro celular." />
+<meta name="theme-color" content="#070713" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Sintonia" />
+<meta property="og:type" content="website" />
+<meta property="og:locale" content="pt_BR" />
+<meta property="og:title" content="SINTONIA" />
+<meta property="og:description" content="Quão sintonizado você está com quem joga ao seu lado?" />
+
+<!-- favicon em SVG inline -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23070713'/%3E%3Cpath d='M10 62 Q30 22 50 50 T90 38' fill='none' stroke='%232dd4bf' stroke-width='8' stroke-linecap='round'/%3E%3Cline x1='50' y1='62' x2='66' y2='30' stroke='%23ef4444' stroke-width='6' stroke-linecap='round'/%3E%3Ccircle cx='50' cy='62' r='7' fill='%23ef4444'/%3E%3C/svg%3E" />
+
+<!-- manifest inline (PWA-ready, sem instalação obrigatória) -->
+<link rel="manifest" href="data:application/json,%7B%22name%22%3A%22Sintonia%22%2C%22short_name%22%3A%22Sintonia%22%2C%22display%22%3A%22standalone%22%2C%22orientation%22%3A%22any%22%2C%22background_color%22%3A%22%23070713%22%2C%22theme_color%22%3A%22%23070713%22%7D" />
+
+<!-- fontes (progressive enhancement; há fallbacks de sistema) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+/* ===================================================================== */
+/* === DESIGN TOKENS === */
+/* ===================================================================== */
+:root{
+  --bg:#070713;
+  --bg-2:#0b0b1d;
+  --ink:#f3f3fb;
+  --muted:#9696b8;
+  --muted-2:#62628a;
+  --line:rgba(255,255,255,.08);
+  --glass:rgba(255,255,255,.045);
+  --glass-strong:rgba(255,255,255,.08);
+
+  --teal:#2dd4bf;
+  --blue:#3b82f6;
+  --indigo:#6366f1;
+  --violet:#a855f7;
+  --red:#ef4444;
+
+  --s4:#22c55e;  /* na mosca */
+  --s3:#eab308;  /* perto    */
+  --s2:#f97316;  /* quase    */
+  --s1:#38bdf8;  /* longe    */
+
+  --display:"Bricolage Grotesque", "Archivo", system-ui, sans-serif;
+  --body:"Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --radius:20px;
+  --shadow:0 24px 60px -18px rgba(0,0,0,.7);
+  --maxw:560px;
+}
+
+/* ===================================================================== */
+/* === RESET & BASE === */
+/* ===================================================================== */
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overscroll-behavior:none}
+body{
+  -webkit-user-select:none;user-select:none;
+  font-family:var(--body);
+  color:var(--ink);
+  background:var(--bg);
+  background-image:
+    radial-gradient(900px 500px at 12% -8%, rgba(45,212,191,.16), transparent 60%),
+    radial-gradient(900px 600px at 92% 6%, rgba(168,85,247,.16), transparent 60%),
+    radial-gradient(700px 500px at 50% 112%, rgba(59,130,246,.14), transparent 60%);
+  background-attachment:fixed;
+  min-height:100dvh;
+  display:flex;flex-direction:column;
+  overflow-x:hidden;
+  -webkit-text-size-adjust:100%;
+  text-rendering:optimizeLegibility;
+}
+/* textura sutil de grão */
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.035;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+a{color:inherit}
+
+/* ===================================================================== */
+/* === HEADER === */
+/* ===================================================================== */
+header{
+  position:sticky;top:0;z-index:30;
+  padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;
+  background:linear-gradient(180deg, rgba(7,7,19,.92), rgba(7,7,19,.55) 70%, transparent);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+}
+.head-row{max-width:var(--maxw);margin:0 auto;display:flex;align-items:center;gap:12px}
+.logo{font-family:var(--display);font-weight:800;letter-spacing:-.03em;font-size:clamp(17px,4.6vw,21px);line-height:1;white-space:nowrap;color:var(--ink);transition:.18s opacity}
+.logo:hover{opacity:.82}
+.logo:active{transform:scale(.97)}
+.logo .dot{color:var(--teal)}
+.logo .b{color:var(--muted)}
+.logo .o{background:linear-gradient(90deg,var(--blue),var(--violet));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.head-spacer{flex:1}
+.icon-btn{
+  width:40px;height:40px;border-radius:12px;display:grid;place-items:center;
+  background:var(--glass);border:1px solid var(--line);font-size:17px;font-weight:700;color:var(--muted);
+  transition:.18s transform,.18s background,.18s color;
+}
+.icon-btn:hover{transform:translateY(-2px);background:var(--glass-strong);color:var(--ink)}
+.icon-btn:active{transform:scale(.92)}
+
+/* placar no header */
+.score-pills{display:flex;gap:8px;align-items:center}
+.pill{
+  display:flex;align-items:center;gap:7px;padding:6px 11px;border-radius:999px;
+  background:var(--glass);border:1px solid var(--line);font-size:12.5px;font-weight:700;
+  transition:.2s;white-space:nowrap;
+}
+.pill .n{font-family:var(--display);font-size:15px}
+.pill.active{border-color:transparent;box-shadow:0 0 0 1.5px currentColor inset, 0 8px 20px -8px currentColor}
+.pill .dotc{width:9px;height:9px;border-radius:50%}
+.pill.coop{color:var(--teal)}
+.pill.teamA{color:var(--teal)} .pill.teamA .dotc{background:var(--teal)}
+.pill.teamB{color:var(--violet)} .pill.teamB .dotc{background:var(--violet)}
+
+/* ===================================================================== */
+/* === LAYOUT === */
+/* ===================================================================== */
+main{flex:1;position:relative;z-index:1;width:100%;max-width:var(--maxw);margin:0 auto;
+  padding:18px 16px calc(env(safe-area-inset-bottom) + 24px);display:flex;flex-direction:column}
+.screen{display:none;animation:fadeUp .45s cubic-bezier(.2,.7,.2,1) both;flex:1;flex-direction:column}
+.screen.show{display:flex}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes pop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
+
+/* ===================================================================== */
+/* === HOME === */
+/* ===================================================================== */
+.hero{text-align:center;margin:6vh 0 4vh}
+.eyebrow{display:inline-block;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);
+  font-weight:700;padding:6px 14px;border:1px solid var(--line);border-radius:999px;background:var(--glass);margin-bottom:22px}
+.hero h1{font-family:var(--display);font-weight:800;letter-spacing:-.045em;line-height:.92;
+  font-size:clamp(58px,19vw,108px);margin-bottom:18px}
+.hero h1 .l2{display:block;background:linear-gradient(100deg,var(--teal),var(--blue) 45%,var(--violet));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{color:var(--muted);font-size:15.5px;line-height:1.55;max-width:420px;margin:0 auto}
+.hero .wave{margin:26px auto 0;display:block;width:min(420px,82%);height:auto;opacity:.9}
+
+.mode-grid{display:grid;gap:14px;margin-top:8px}
+.mode-card{
+  text-align:left;padding:20px 20px 18px;border-radius:var(--radius);position:relative;overflow:hidden;
+  background:var(--glass);border:1px solid var(--line);transition:.22s transform,.22s border-color,.22s background;
+}
+.mode-card::after{content:"";position:absolute;inset:0;border-radius:inherit;opacity:0;transition:.3s;
+  background:radial-gradient(420px 200px at var(--mx,30%) -20%, rgba(255,255,255,.07), transparent 70%)}
+.mode-card:hover{transform:translateY(-3px);border-color:transparent;box-shadow:var(--shadow)}
+.mode-card:hover::after{opacity:1}
+.mode-card:active{transform:scale(.985)}
+.mode-card .ico{font-size:26px;margin-bottom:10px;display:block}
+.mode-card h3{font-family:var(--display);font-size:21px;font-weight:700;letter-spacing:-.02em;margin-bottom:5px}
+.mode-card p{color:var(--muted);font-size:13.5px;line-height:1.5}
+.mode-card .arrow{position:absolute;top:20px;right:20px;color:var(--muted-2);font-size:18px;transition:.22s}
+.mode-card:hover .arrow{color:var(--teal);transform:translate(3px,-3px)}
+.mode-card.dupla{box-shadow:0 0 0 1px rgba(45,212,191,.0) inset}
+.mode-card.dupla:hover{background:linear-gradient(180deg,rgba(45,212,191,.07),var(--glass))}
+.mode-card.familia:hover{background:linear-gradient(180deg,rgba(168,85,247,.07),var(--glass))}
+
+/* ===================================================================== */
+/* === SETUP === */
+/* ===================================================================== */
+.card{background:var(--glass);border:1px solid var(--line);border-radius:var(--radius);padding:22px}
+.section-title{font-family:var(--display);font-size:24px;font-weight:700;letter-spacing:-.02em;margin-bottom:4px}
+.section-sub{color:var(--muted);font-size:13.5px;margin-bottom:20px;line-height:1.5}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+.field input,.concept.editing .ed{-webkit-user-select:text;user-select:text}
+.field input{
+  width:100%;padding:13px 15px;border-radius:13px;font-size:16px;font-family:inherit;color:var(--ink);
+  background:rgba(0,0,0,.28);border:1px solid var(--line);transition:.18s;
+}
+.field input:focus{outline:none;border-color:var(--teal);background:rgba(0,0,0,.4)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.seg{display:flex;gap:8px;flex-wrap:wrap}
+.seg button{flex:1;min-width:64px;padding:12px;border-radius:13px;background:rgba(0,0,0,.25);border:1px solid var(--line);
+  font-weight:700;font-size:15px;color:var(--muted);transition:.18s}
+.seg button.on{background:linear-gradient(135deg,var(--blue),var(--indigo));color:#fff;border-color:transparent;box-shadow:0 8px 20px -10px var(--indigo)}
+.seg-help{color:var(--muted-2);font-size:12px;margin-top:8px;line-height:1.4}
+
+/* botões principais */
+.btn{
+  display:flex;align-items:center;justify-content:center;gap:9px;width:100%;
+  padding:17px;border-radius:16px;font-family:var(--display);font-size:17px;font-weight:700;letter-spacing:-.01em;
+  transition:.18s transform,.25s box-shadow,.2s filter;
+}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:linear-gradient(135deg,var(--teal),var(--blue) 55%,var(--indigo));color:#04121a;
+  box-shadow:0 14px 30px -12px var(--blue)}
+.btn-primary:hover{filter:brightness(1.06);box-shadow:0 18px 36px -12px var(--blue)}
+.btn-ghost{background:var(--glass);border:1px solid var(--line);color:var(--ink)}
+.btn-ghost:hover{background:var(--glass-strong)}
+.btn-danger{background:linear-gradient(135deg,#f43f5e,#f97316);color:#fff;box-shadow:0 14px 30px -12px #f43f5e}
+.btn.lg{padding:19px}
+.btn:disabled{opacity:.4;pointer-events:none;filter:grayscale(.4)}
+.stack{display:flex;flex-direction:column;gap:12px;margin-top:auto;padding-top:18px}
+
+/* ===================================================================== */
+/* === GAME / FASES === */
+/* ===================================================================== */
+.phase{display:none;flex:1;flex-direction:column;animation:fadeUp .4s cubic-bezier(.2,.7,.2,1) both}
+.phase.show{display:flex}
+.turn-banner{
+  display:flex;align-items:center;gap:11px;padding:13px 16px;border-radius:15px;margin-bottom:16px;
+  background:var(--glass);border:1px solid var(--line);font-size:14px;font-weight:600;
+}
+.turn-banner .badge{font-family:var(--display);font-weight:800;font-size:13px;padding:5px 11px;border-radius:999px;color:#04121a}
+.badge.teal{background:linear-gradient(135deg,var(--teal),#5eead4)}
+.badge.violet{background:linear-gradient(135deg,var(--violet),#d8b4fe);color:#1a0a2e}
+.round-tag{margin-left:auto;font-size:12px;color:var(--muted-2);font-weight:700;white-space:nowrap}
+
+/* cartão de conceitos */
+.concept-card{
+  background:linear-gradient(160deg,var(--glass-strong),var(--glass));border:1px solid var(--line);
+  border-radius:var(--radius);padding:18px;margin-bottom:18px;position:relative;overflow:hidden;
+  animation:pop .4s both;
+}
+.concept-card .label{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted-2);font-weight:700;text-align:center;margin-bottom:14px}
+.concept-row{display:flex;align-items:stretch;gap:10px}
+.concept{flex:1;text-align:center;padding:16px 10px;border-radius:14px;font-family:var(--display);font-weight:700;
+  font-size:clamp(17px,5vw,22px);line-height:1.1;letter-spacing:-.02em}
+.concept.left{background:linear-gradient(135deg,rgba(45,212,191,.18),rgba(45,212,191,.05));border:1px solid rgba(45,212,191,.3);color:#9af3e6}
+.concept.right{background:linear-gradient(135deg,rgba(168,85,247,.18),rgba(168,85,247,.05));border:1px solid rgba(168,85,247,.3);color:#e3c4ff}
+.concept .dir{display:block;font-family:var(--body);font-size:18px;opacity:.6;margin-bottom:2px}
+.vs{display:grid;place-items:center;font-family:var(--display);font-weight:800;color:var(--muted-2);font-size:13px;padding:0 2px}
+.card-tools{display:flex;justify-content:center;gap:8px;margin-top:13px}
+.card-tools button{font-size:11.5px;font-weight:700;color:var(--muted-2);padding:6px 12px;border-radius:999px;
+  background:rgba(255,255,255,.03);border:1px solid var(--line);transition:.16s}
+.card-tools button:hover{color:var(--ink);background:var(--glass);border-color:rgba(255,255,255,.18)}
+.card-tools button:active{transform:scale(.94)}
+.card-tools button.live{color:#34d399;border-color:rgba(52,211,153,.4)}
+.concept .ed{outline:none;border-radius:8px;min-width:40px}
+.concept.editing{box-shadow:0 0 0 2px var(--teal) inset;background:rgba(0,0,0,.3)}
+.concept.editing .ed{background:transparent}
+
+/* área do mostrador (dial) */
+.dial-wrap{position:relative;width:100%;margin:4px 0 6px}
+.dial-wrap canvas{display:block;width:100%;height:auto;touch-action:none}
+.dial-hint{text-align:center;color:var(--muted);font-size:13px;margin-top:2px;min-height:18px;transition:.2s}
+.dial-hint b{color:var(--ink)}
+
+/* instruções faladas */
+.instruct{
+  text-align:center;padding:8px 4px 4px;
+}
+.instruct .big{font-family:var(--display);font-size:clamp(22px,6.5vw,30px);font-weight:700;letter-spacing:-.02em;line-height:1.1;margin-bottom:10px}
+.instruct .sub{color:var(--muted);font-size:14.5px;line-height:1.55;max-width:400px;margin:0 auto}
+.instruct .warn{color:#fbbf24;font-weight:700}
+
+/* placar grande de revelação */
+.reveal-score{text-align:center;margin:6px 0 4px;animation:pop .5s both}
+.reveal-score .pts{font-family:var(--display);font-weight:800;letter-spacing:-.04em;line-height:1;
+  font-size:clamp(64px,22vw,120px);background:linear-gradient(180deg,#fff,var(--teal));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.reveal-score .pts.s0{background:linear-gradient(180deg,#fff,#64748b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.reveal-score .pts.emoji{-webkit-text-fill-color:initial;background:none;font-size:clamp(72px,26vw,128px)}
+.reveal-score .verdict{font-family:var(--display);font-size:20px;font-weight:700;margin-top:2px}
+.reveal-score .detail{color:var(--muted);font-size:13px;margin-top:6px}
+
+.winner{
+  text-align:center;padding:14px;border-radius:16px;margin-top:14px;animation:pop .5s both;
+  background:linear-gradient(135deg,rgba(34,197,94,.16),rgba(45,212,191,.08));border:1px solid rgba(34,197,94,.35);
+}
+.winner .t{font-family:var(--display);font-size:19px;font-weight:800}
+.winner .s{color:var(--muted);font-size:13px;margin-top:3px}
+
+/* sealed (fase dica) */
+.sealed{
+  display:grid;place-items:center;gap:14px;padding:34px 18px;border-radius:var(--radius);
+  background:repeating-linear-gradient(135deg,rgba(255,255,255,.03) 0 12px,rgba(255,255,255,.05) 12px 24px);
+  border:1px dashed var(--line);text-align:center;margin:6px 0 4px;
+}
+.sealed .lock{font-size:42px;animation:float 2.4s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+.sealed .t{font-family:var(--display);font-weight:700;font-size:18px}
+.sealed .s{color:var(--muted);font-size:13.5px;max-width:320px}
+
+/* ===================================================================== */
+/* === COUNTDOWN OVERLAY === */
+/* ===================================================================== */
+.countdown{
+  position:fixed;inset:0;z-index:60;display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  background:radial-gradient(circle at 50% 40%, #0d0d22, #050510 70%);text-align:center;padding:24px;
+}
+.countdown.show{display:flex;animation:fadeUp .25s both}
+.countdown .eyes{font-size:54px;animation:float 2s ease-in-out infinite}
+.countdown .msg{font-family:var(--display);font-size:clamp(20px,6vw,28px);font-weight:700;max-width:360px;line-height:1.2}
+.countdown .msg .hl{color:#fbbf24}
+.countdown .num{font-family:var(--display);font-weight:800;font-size:clamp(110px,40vw,220px);line-height:1;
+  background:linear-gradient(180deg,var(--teal),var(--blue));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.countdown .num.beat{animation:beat .6s cubic-bezier(.2,.7,.2,1)}
+@keyframes beat{0%{transform:scale(.4);opacity:0}40%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+
+/* ===================================================================== */
+/* === MODAL DE AJUDA === */
+/* ===================================================================== */
+.modal{position:fixed;inset:0;z-index:70;display:none;align-items:flex-end;justify-content:center}
+.modal.show{display:flex;animation:fadeUp .2s both}
+.modal .scrim{position:absolute;inset:0;background:rgba(3,3,10,.72);backdrop-filter:blur(6px)}
+.modal .sheet{
+  position:relative;width:100%;max-width:var(--maxw);max-height:88dvh;overflow-y:auto;
+  background:var(--bg-2);border:1px solid var(--line);border-radius:24px 24px 0 0;
+  padding:8px 20px calc(env(safe-area-inset-bottom) + 24px);box-shadow:var(--shadow);
+  animation:sheetUp .32s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes sheetUp{from{transform:translateY(40px);opacity:.6}to{transform:none;opacity:1}}
+.grab{width:42px;height:4px;border-radius:99px;background:var(--line);margin:8px auto 16px}
+.modal h2{font-family:var(--display);font-size:25px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px}
+.modal .lede{color:var(--muted);font-size:14px;margin-bottom:20px;line-height:1.5}
+.steps{display:flex;flex-direction:column;gap:12px}
+.step{display:flex;gap:14px;align-items:flex-start;padding:14px;border-radius:16px;background:var(--glass);border:1px solid var(--line)}
+.step .ph{flex:none;width:46px;height:46px;border-radius:13px;display:grid;place-items:center;font-size:23px;position:relative;overflow:hidden}
+.step:nth-child(1) .ph{background:linear-gradient(135deg,rgba(45,212,191,.25),rgba(45,212,191,.08))}
+.step:nth-child(2) .ph{background:linear-gradient(135deg,rgba(251,191,36,.25),rgba(251,191,36,.08))}
+.step:nth-child(3) .ph{background:linear-gradient(135deg,rgba(59,130,246,.25),rgba(59,130,246,.08))}
+.step:nth-child(4) .ph{background:linear-gradient(135deg,rgba(168,85,247,.25),rgba(168,85,247,.08))}
+.step h4{font-family:var(--display);font-size:15.5px;font-weight:700;margin-bottom:3px}
+.step h4 .tag{font-size:10px;letter-spacing:.12em;color:var(--muted-2);font-family:var(--body);font-weight:700;display:block;text-transform:uppercase;margin-bottom:1px}
+.step p{color:var(--muted);font-size:13px;line-height:1.5}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;padding:14px;border-radius:16px;background:var(--glass);border:1px solid var(--line)}
+.legend .li{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600}
+.legend .sw{width:16px;height:16px;border-radius:5px}
+
+/* pulse anim para o ícone da fase 2 no tutorial */
+.pulse{animation:pulse 1.8s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+
+/* ===================================================================== */
+/* === FOOTER === */
+/* ===================================================================== */
+footer{position:relative;z-index:1;text-align:center;padding:18px 16px calc(env(safe-area-inset-bottom) + 18px);
+  color:var(--muted-2);font-size:12.5px;border-top:1px solid var(--line)}
+footer a{color:var(--teal);text-decoration:none;font-weight:700}
+footer a:hover{text-decoration:underline}
+footer .heart{color:var(--red)}
+
+@media (min-width:600px){ .hero{margin:9vh 0 5vh} }
+
+/* === COMPACTO: telas baixas (caber a rodada inteira sem rolar) === */
+@media (max-height:760px){
+  header{padding-top:calc(env(safe-area-inset-top) + 9px);padding-bottom:9px}
+  main{padding-top:12px}
+  .turn-banner{padding:10px 14px;margin-bottom:11px}
+  .concept-card{padding:13px;margin-bottom:11px}
+  .concept-card .label{margin-bottom:10px}
+  .concept{padding:11px 8px}
+  .card-tools{margin-top:9px}
+  .dial-hint{margin-top:0}
+  .stack{padding-top:11px;gap:10px}
+  .btn{padding:14px}.btn.lg{padding:16px}
+  footer{padding:11px 16px calc(env(safe-area-inset-bottom) + 11px);font-size:11.5px}
+}
+
+/* === PAISAGEM: aviso para virar de volta (o jogo é desenhado pra retrato) === */
+.rotate-tip{display:none}
+@media (orientation:landscape) and (max-height:480px){
+  main,header,footer{filter:blur(3px);pointer-events:none}
+  .rotate-tip{
+    display:flex;position:fixed;inset:0;z-index:80;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;text-align:center;padding:24px;background:rgba(7,7,19,.86);backdrop-filter:blur(8px);
+  }
+  .rotate-tip .ic{font-size:46px;animation:float 2s ease-in-out infinite}
+  .rotate-tip .t{font-family:var(--display);font-weight:700;font-size:20px}
+  .rotate-tip .s{color:var(--muted);font-size:14px;max-width:300px}
+}
+</style>
+</head>
+<body>
+
+<!-- ===================================================================== -->
+<!-- === HEADER === -->
+<!-- ===================================================================== -->
+<header>
+  <div class="head-row">
+    <button class="logo" id="logoHome" title="Voltar ao início">SINTONIA<span class="dot">.</span></button>
+    <div class="head-spacer"></div>
+    <div class="score-pills" id="scorePills" hidden></div>
+    <button class="icon-btn" id="btnNew" title="Novo jogo" hidden>↻</button>
+    <button class="icon-btn" id="btnHelp" title="Como jogar">?</button>
+  </div>
+</header>
+
+<!-- ===================================================================== -->
+<!-- === MAIN === -->
+<!-- ===================================================================== -->
+<main>
+
+  <!-- ============ TELA: HOME ============ -->
+  <section class="screen show" id="screenHome">
+    <div class="hero">
+      <span class="eyebrow">Leia a mente de quem você ama</span>
+      <h1><span class="l2">SINTONIA</span></h1>
+      <p>Um dá a dica. Os outros deslizam o ponteiro até onde acham que está o alvo escondido. Quão sintonizados vocês estão?</p>
+      <svg class="wave" viewBox="0 0 420 70" fill="none" aria-hidden="true">
+        <path d="M5 45 Q55 5 105 38 T205 32 T305 40 T415 22" stroke="url(#g)" stroke-width="4" stroke-linecap="round"/>
+        <line x1="205" y1="45" x2="232" y2="6" stroke="#ef4444" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="205" cy="45" r="6" fill="#ef4444"/>
+        <defs><linearGradient id="g" x1="0" y1="0" x2="420" y2="0">
+          <stop stop-color="#2dd4bf"/><stop offset=".5" stop-color="#3b82f6"/><stop offset="1" stop-color="#a855f7"/>
+        </linearGradient></defs>
+      </svg>
+    </div>
+    <div class="mode-grid">
+      <button class="mode-card dupla" data-mode="dupla">
+        <span class="arrow">↗</span>
+        <span class="ico">💞</span>
+        <h3>Modo Dupla</h3>
+        <p>Cooperativo, ideal pra casal. Um dá a dica, o outro adivinha. Somem os pontos e batam a meta juntos.</p>
+      </button>
+      <button class="mode-card familia" data-mode="familia">
+        <span class="arrow">↗</span>
+        <span class="ico">👨‍👩‍👧‍👦</span>
+        <h3>Modo Família</h3>
+        <p>Dois times disputam. A cada rodada um time dá a dica e adivinha junto. Primeiro a bater a meta vence.</p>
+      </button>
+    </div>
+  </section>
+
+  <!-- ============ TELA: SETUP ============ -->
+  <section class="screen" id="screenSetup">
+    <div class="card">
+      <div class="section-title" id="setupTitle">Configurar partida</div>
+      <div class="section-sub" id="setupSub">Personalize antes de começar.</div>
+
+      <!-- dupla -->
+      <div id="setupDupla">
+        <div class="row2">
+          <div class="field"><label>Jogador 1</label><input id="p1" maxlength="14" placeholder="Você"></div>
+          <div class="field"><label>Jogador 2</label><input id="p2" maxlength="14" placeholder="Amor"></div>
+        </div>
+      </div>
+
+      <!-- familia -->
+      <div id="setupFamilia" hidden>
+        <div class="row2">
+          <div class="field"><label>Nome do Time 1</label><input id="t1" maxlength="14" placeholder="Time Verde"></div>
+          <div class="field"><label>Nome do Time 2</label><input id="t2" maxlength="14" placeholder="Time Roxo"></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Meta de pontos</label>
+        <div class="seg" id="metaSeg">
+          <button data-meta="free">Livre</button>
+          <button data-meta="12">12</button>
+          <button data-meta="20" class="on">20</button>
+          <button data-meta="30">30</button>
+          <button data-meta="999">∞</button>
+        </div>
+        <div class="seg-help" id="metaHelp">Jogue até alguém alcançar a meta de pontos.</div>
+      </div>
+    </div>
+
+    <div class="stack">
+      <button class="btn btn-primary lg" id="btnStart">Começar a jogar ✦</button>
+      <button class="btn btn-ghost" id="btnBackHome">Voltar</button>
+    </div>
+  </section>
+
+  <!-- ============ TELA: JOGO (contém as 4 fases) ============ -->
+  <section class="screen" id="screenGame">
+
+    <div class="turn-banner" id="turnBanner">
+      <span class="badge teal" id="turnBadge">VIDENTE</span>
+      <span id="turnText">—</span>
+      <span class="round-tag" id="roundTag">Rodada 1</span>
+    </div>
+
+    <!-- FASE 0: HANDOFF (passar o celular) -->
+    <div class="phase" id="phHandoff">
+      <div class="instruct" style="margin:auto 0">
+        <div style="font-size:48px;margin-bottom:12px">📱➡️🙈</div>
+        <div class="big" id="handoffBig">Passe o celular ao Vidente</div>
+        <div class="sub" id="handoffSub">Só o Vidente vai ver onde está o alvo. Os outros, sem espiar!</div>
+      </div>
+      <div class="stack">
+        <button class="btn btn-primary lg" id="btnIamSeer">Sou o Vidente — pronto 👁️</button>
+      </div>
+    </div>
+
+    <!-- FASE 1: VIDENTE vê alvo e gira a roleta -->
+    <div class="phase" id="phSeer">
+      <div class="concept-card">
+        <div class="label">A escala desta rodada</div>
+        <div class="concept-row">
+          <div class="concept left"><span class="dir">←</span><span class="ed" id="seerA">—</span></div>
+          <div class="vs">vs</div>
+          <div class="concept right"><span class="dir">→</span><span class="ed" id="seerB">—</span></div>
+        </div>
+        <div class="card-tools">
+          <button id="btnSwap" title="Sortear outra escala">🔄 Trocar</button>
+          <button id="btnEdit" title="Escrever sua própria escala">✏️ Editar</button>
+        </div>
+      </div>
+      <div class="dial-wrap"><canvas id="canvasSeer"></canvas></div>
+      <div class="dial-hint" id="seerHint">Gire a roleta para sortear o alvo secreto 🎯</div>
+      <div class="stack">
+        <button class="btn btn-ghost" id="btnSpin">🎡 Girar Roleta</button>
+        <button class="btn btn-primary lg" id="btnHide" disabled>Esconder e dar a dica 🤫</button>
+      </div>
+    </div>
+
+    <!-- FASE 2: DICA (alvo lacrado, vidente fala) -->
+    <div class="phase" id="phClue">
+      <div class="concept-card">
+        <div class="label">Diga sua dica pensando nesta escala</div>
+        <div class="concept-row">
+          <div class="concept left"><span class="dir">←</span><span id="clueA">—</span></div>
+          <div class="vs">vs</div>
+          <div class="concept right"><span class="dir">→</span><span id="clueB">—</span></div>
+        </div>
+      </div>
+      <div class="sealed">
+        <div class="lock">🔒</div>
+        <div class="t">Alvo lacrado</div>
+        <div class="s">Vidente, diga <b>em voz alta</b> uma pista que represente o ponto exato — sem dizer onde ele está!</div>
+      </div>
+      <div class="stack">
+        <button class="btn btn-primary lg" id="btnToGuess">Já dei a dica — adivinhar agora 👉</button>
+      </div>
+    </div>
+
+    <!-- FASE 3: ADIVINHAÇÃO -->
+    <div class="phase" id="phGuess">
+      <div class="concept-card">
+        <div class="label" id="guessLabel">Deslizem o ponteiro juntos</div>
+        <div class="concept-row">
+          <div class="concept left"><span class="dir">←</span><span id="guessA">—</span></div>
+          <div class="vs">vs</div>
+          <div class="concept right"><span class="dir">→</span><span id="guessB">—</span></div>
+        </div>
+      </div>
+      <div class="dial-wrap"><canvas id="canvasGuess"></canvas></div>
+      <div class="dial-hint" id="guessHint">Arraste o <b>ponteiro vermelho</b> até onde acham que está o alvo</div>
+      <div class="stack">
+        <button class="btn btn-primary lg" id="btnReveal">Revelar 🎭</button>
+      </div>
+    </div>
+
+    <!-- FASE 4: REVELAÇÃO -->
+    <div class="phase" id="phReveal">
+      <div class="reveal-score">
+        <div class="pts" id="revPts">0</div>
+        <div class="verdict" id="revVerdict">—</div>
+        <div class="detail" id="revDetail">—</div>
+      </div>
+      <div class="dial-wrap"><canvas id="canvasReveal"></canvas></div>
+      <div id="winnerBox"></div>
+      <div class="stack">
+        <button class="btn btn-primary lg" id="btnNext">Próxima Rodada →</button>
+      </div>
+    </div>
+
+  </section>
+
+</main>
+
+<!-- ===================================================================== -->
+<!-- === FOOTER === -->
+<!-- ===================================================================== -->
+<footer>
+  Feito com <span class="heart">♥</span> por <a href="https://links.johnnick.com.br/" target="_blank" rel="noopener">Johnnick F. Landim</a>
+</footer>
+
+<!-- ===================================================================== -->
+<!-- === AVISO DE ROTAÇÃO (jogo desenhado para retrato) === -->
+<!-- ===================================================================== -->
+<div class="rotate-tip">
+  <div class="ic">📱🔄</div>
+  <div class="t">Gire para o modo retrato</div>
+  <div class="s">A Sintonia foi feita pra jogar com o celular em pé. Vire a tela e divirta-se!</div>
+</div>
+
+<!-- ===================================================================== -->
+<!-- === COUNTDOWN OVERLAY === -->
+<!-- ===================================================================== -->
+<div class="countdown" id="countdown">
+  <div class="eyes">🙈</div>
+  <div class="msg">Adivinhadores, <span class="hl">não olhem!</span><br>Só o Vidente vê a tela.</div>
+  <div class="num" id="cdNum">3</div>
+</div>
+
+<!-- ===================================================================== -->
+<!-- === MODAL DE AJUDA === -->
+<!-- ===================================================================== -->
+<div class="modal" id="helpModal">
+  <div class="scrim" data-close></div>
+  <div class="sheet">
+    <div class="grab"></div>
+    <h2>Como jogar 🌊</h2>
+    <p class="lede">Existe um ponto secreto na escala entre dois conceitos opostos. O Vidente sabe onde ele está e dá uma dica. Os outros tentam entrar na mesma sintonia.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="ph">🎡</div>
+        <div><h4><span class="tag">Fase 1 · Preparação</span>O Vidente gira a roleta</h4>
+        <p>Só o Vidente vê a escala (ex.: Frio ↔ Quente) e gira a roleta para sortear onde fica a zona-alvo colorida.</p></div>
+      </div>
+      <div class="step">
+        <div class="ph"><span class="pulse">🗣️</span></div>
+        <div><h4><span class="tag">Fase 2 · Dica</span>Uma pista em voz alta</h4>
+        <p>O alvo é lacrado. O Vidente diz uma palavra ou frase que represente exatamente aquele ponto — sem entregar onde ele está.</p></div>
+      </div>
+      <div class="step">
+        <div class="ph">🎯</div>
+        <div><h4><span class="tag">Fase 3 · Adivinhação</span>Deslizem o ponteiro</h4>
+        <p>Os adivinhadores debatem e arrastam o ponteiro vermelho até onde acham que a dica aponta na escala.</p></div>
+      </div>
+      <div class="step">
+        <div class="ph">🎭</div>
+        <div><h4><span class="tag">Fase 4 · Revelação</span>A tampa se abre</h4>
+        <p>A tampa abre e revela o alvo. Quanto mais perto do centro, mais pontos. Depois é só passar pra próxima!</p></div>
+      </div>
+    </div>
+    <div class="legend">
+      <div class="li"><span class="sw" style="background:var(--s4)"></span>Na mosca · 4 pts</div>
+      <div class="li"><span class="sw" style="background:var(--s3)"></span>Perto · 3 pts</div>
+      <div class="li"><span class="sw" style="background:var(--s2)"></span>Quase · 2 pts</div>
+      <div class="li"><span class="sw" style="background:var(--s1)"></span>Longe · 1 pt</div>
+      <div class="li"><span class="sw" style="background:#475569"></span>Errou · 0</div>
+    </div>
+    <div class="stack"><button class="btn btn-ghost" data-close>Entendi, bora jogar</button></div>
+  </div>
+</div>
+
+<script>
+/* ===================================================================== */
+/* === 1. BARALHO DE CARTAS (pares de conceitos em PT-BR) === */
+/* ===================================================================== */
+const CARDS = [
+  // simples
+  ["Frio","Quente"],["Ruim","Bom"],["Lento","Rápido"],["Barato","Caro"],
+  ["Pequeno","Grande"],["Fácil","Difícil"],["Fraco","Forte"],["Feio","Bonito"],
+  ["Comum","Raro"],["Antigo","Moderno"],["Silencioso","Barulhento"],["Leve","Pesado"],
+  // subjetivos
+  ["Subestimado","Superestimado"],["Mente","Coração"],["Talento","Esforço"],
+  ["Passado","Futuro"],["Real","Fake"],["Inútil","Indispensável"],["Óbvio","Misterioso"],
+  ["Mainstream","Underground"],["Cringe","Baseado"],["Perigoso","Seguro"],
+  // culturais BR
+  ["Brega","Chique"],["Zueira","Sério"],["Nordeste","Sul"],["Praia","Montanha"],
+  ["Interior","Cidade grande"],["Cafezinho","Energético"],["Pagode","Rock"],
+  ["Boteco","Restaurante chique"],["Churrasco","Comida japonesa"],["Sertanejo","Funk"],
+  // relacionamento / pessoas
+  ["Desapegado","Ciumento"],["Prático","Romântico"],["Tímido","Atirado"],
+  ["Cabeça quente","Calmão"],["Mão de vaca","Gastão"],["Caseiro","Festeiro"],
+  ["Introvertido","Extrovertido"],["Pessimista","Otimista"],["Bagunçado","Organizado"],
+  ["Apaixonado","Indiferente"],["Quietão","Tagarela"],["Difícil de agradar","Fácil de agradar"],
+  // comida / dia a dia
+  ["Salgado","Doce"],["Sem graça","Apimentado"],["Saudável","Gostoso"],
+  ["Café","Chá"],["Gato","Cachorro"],["Dia","Noite"],["Verão","Inverno"],
+  ["Improviso","Planejamento"],["Sorte","Azar"],["Trabalho","Diversão"],
+  ["Nerd","Descolado"],["Educado","Folgado"],["Polêmico","Tranquilo"]
+];
+
+/* ===================================================================== */
+/* === 2. GEOMETRIA & PONTUAÇÃO DO MOSTRADOR === */
+/* ===================================================================== */
+// t ∈ [0,1] percorre o semicírculo: 0 = extremo esquerdo, 1 = extremo direito.
+const TMIN = 0.03, TMAX = 0.97;       // limite do ponteiro
+const COVER_L = 0.10, COVER_R = 0.90; // região coberta pela tampa (fixa)
+const TARGET_MIN = 0.28, TARGET_MAX = 0.72; // alvo sempre dentro da tampa
+
+// faixas de pontuação (meia-largura em t a partir do centro do alvo)
+const BANDS = [
+  {s:1, h:0.150, c:'#38bdf8'},
+  {s:2, h:0.110, c:'#f97316'},
+  {s:3, h:0.070, c:'#eab308'},
+  {s:4, h:0.030, c:'#22c55e'}
+];
+function scoreFor(dt){
+  dt = Math.abs(dt);
+  if (dt <= 0.030) return 4;
+  if (dt <= 0.070) return 3;
+  if (dt <= 0.110) return 2;
+  if (dt <= 0.150) return 1;
+  return 0;
+}
+const angleFor = t => Math.PI + t*Math.PI; // π (esq) → 2π (dir), pela metade de cima
+
+/* ===================================================================== */
+/* === 3. ESTADO DO JOGO === */
+/* ===================================================================== */
+const state = {
+  mode:'dupla',
+  meta:20,
+  round:0,
+  activeIndex:0,         // qual jogador/time joga nesta rodada
+  players:['Jogador 1','Jogador 2'],
+  teams:[{name:'Time Verde',score:0},{name:'Time Roxo',score:0}],
+  coopScore:0,
+  card:['',''],
+  deck:[], deckIdx:0,
+  lastPoints:0,
+  phase:'home'
+};
+
+// estado do mostrador (compartilhado pelos 3 canvases; só 1 visível por vez)
+const dial = {
+  t:0.5,            // posição do ponteiro
+  target:0.5,       // posição do alvo
+  v:0,              // velocidade angular (em t/frame)
+  spinning:false,
+  spun:false,
+  showBands:false,  // desenhar faixas coloridas?
+  coverProg:0,      // 0 = tampa fechada, 1 = tampa aberta
+  interact:'none'   // 'spin' | 'drag' | 'none'
+};
+
+/* ===================================================================== */
+/* === 4. BARALHO === */
+/* ===================================================================== */
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];} return a; }
+function buildDeck(){ state.deck = shuffle(CARDS.map((_,i)=>i)); state.deckIdx = 0; }
+function drawCard(){
+  if(state.deckIdx >= state.deck.length) buildDeck();
+  const idx = state.deck[state.deckIdx++];
+  // metade das vezes inverte os lados, pra variar a direção
+  state.card = Math.random()<0.5 ? CARDS[idx].slice() : CARDS[idx].slice().reverse();
+}
+
+/* ===================================================================== */
+/* === 5. RENDERIZAÇÃO DO MOSTRADOR (canvas) === */
+/* ===================================================================== */
+function makeDial(canvas){
+  const ctx = canvas.getContext('2d');
+  let W=0,H=0,cx=0,cy=0,R=0,track=0, dpr=1;
+
+  function resize(){
+    const cssW = canvas.parentElement.clientWidth;
+    if(!cssW) return;               // fase oculta: mantém o último tamanho válido
+    // limita a altura do mostrador pela altura real da tela (mobile / paisagem),
+    // garantindo que conceitos + mostrador + botões caibam sem rolar.
+    const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+    const cssH = Math.round(Math.max(140, Math.min(cssW*0.60, vh*0.46)));
+    dpr = Math.min(window.devicePixelRatio||1, 2.5);
+    canvas.width = cssW*dpr; canvas.height = cssH*dpr;
+    canvas.style.height = cssH+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    W=cssW; H=cssH;
+    cx = W/2; cy = H-12;
+    R  = Math.min(W*0.46, H-24);
+    track = Math.max(18, R*0.135);
+  }
+
+  // converte ponto da tela em t
+  function ptToT(clientX, clientY){
+    const r = canvas.getBoundingClientRect();
+    const x = clientX-r.left, y = clientY-r.top;
+    const a = Math.atan2(y-cy, x-cx);
+    let t;
+    if (a <= 0) t = a/Math.PI + 1;
+    else t = (x < cx) ? 0 : 1;
+    return Math.max(TMIN, Math.min(TMAX, t));
+  }
+
+  function arcStroke(t0,t1,width,color){
+    ctx.beginPath();
+    ctx.lineWidth = width; ctx.lineCap='butt'; ctx.strokeStyle=color;
+    ctx.arc(cx,cy,R, angleFor(t0), angleFor(t1));
+    ctx.stroke();
+  }
+
+  function render(){
+    ctx.clearRect(0,0,W,H);
+
+    // brilho de base
+    const glow = ctx.createRadialGradient(cx,cy,R*0.2,cx,cy,R*1.2);
+    glow.addColorStop(0,'rgba(99,102,241,.10)'); glow.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=glow; ctx.beginPath(); ctx.arc(cx,cy,R*1.15,Math.PI,2*Math.PI); ctx.fill();
+
+    // trilho-espectro (segmentado, teal→violeta)
+    const SEG=64;
+    for(let i=0;i<SEG;i++){
+      const t0=i/SEG, t1=(i+1)/SEG;
+      const hue = 175 + ((t0+t1)/2)*92;
+      arcStroke(t0,t1, track, `hsl(${hue} 70% 56%)`);
+    }
+    // sombra interna do trilho
+    ctx.beginPath(); ctx.lineWidth=track; ctx.strokeStyle='rgba(0,0,0,.18)';
+    ctx.arc(cx,cy,R, angleFor(0), angleFor(1)); ctx.stroke();
+
+    // ticks
+    ctx.strokeStyle='rgba(255,255,255,.16)'; ctx.lineWidth=2;
+    for(let k=0;k<=10;k++){
+      const a=angleFor(k/10), r0=R-track/2, r1=R-track/2-(k%5===0?9:5);
+      ctx.beginPath();
+      ctx.moveTo(cx+Math.cos(a)*r0, cy+Math.sin(a)*r0);
+      ctx.lineTo(cx+Math.cos(a)*r1, cy+Math.sin(a)*r1);
+      ctx.stroke();
+    }
+
+    // faixas de pontuação (do maior pro menor).
+    // SÓ desenha quando a tampa começou a abrir (coverProg>0), para que durante
+    // a adivinhação (tampa fechada) NADA da resposta — nem o brilho — vaze por trás.
+    if(dial.showBands && dial.coverProg > 0.001){
+      for(const b of BANDS){
+        const t0=Math.max(0,dial.target-b.h), t1=Math.min(1,dial.target+b.h);
+        arcStroke(t0,t1, track*0.92, b.c);
+      }
+      // brilho na zona 4 só quando já está bem revelado (evita halo escapando da tampa)
+      if(dial.coverProg > 0.6){
+        const t0=Math.max(0,dial.target-0.030), t1=Math.min(1,dial.target+0.030);
+        ctx.save(); ctx.shadowColor='#22c55e'; ctx.shadowBlur=14;
+        arcStroke(t0,t1, track*0.92, '#22c55e'); ctx.restore();
+      }
+    }
+
+    // TAMPA (duas portas que abrem do centro pra fora)
+    if(dial.coverProg < 0.999){
+      const p=dial.coverProg, mid=0.5;
+      const leftEnd  = mid - (mid-COVER_L)*p;
+      const rightSt  = mid + (COVER_R-mid)*p;
+      const drawDoor=(t0,t1)=>{
+        if(t1-t0<=0.001) return;
+        const grad=ctx.createLinearGradient(cx- R,cy,cx+R,cy);
+        grad.addColorStop(0,'#1c1c35'); grad.addColorStop(1,'#12122a');
+        arcStroke(t0,t1, track+5, grad);
+        // borda interna (luz na quina que se move)
+        arcStroke(t0,t1, track+5, 'rgba(255,255,255,.05)');
+        // marca da quina
+        const edge = (t0===COVER_L)? t1 : t0;
+        ctx.save(); ctx.strokeStyle='rgba(45,212,191,.55)'; ctx.lineWidth=3;
+        const a=angleFor(edge);
+        ctx.beginPath();
+        ctx.moveTo(cx+Math.cos(a)*(R-track/2-3), cy+Math.sin(a)*(R-track/2-3));
+        ctx.lineTo(cx+Math.cos(a)*(R+track/2+3), cy+Math.sin(a)*(R+track/2+3));
+        ctx.stroke(); ctx.restore();
+      };
+      drawDoor(COVER_L, leftEnd);
+      drawDoor(rightSt, COVER_R);
+    }
+
+    // PONTEIRO vermelho
+    const a=angleFor(dial.t);
+    const tipR=R+track*0.45, baseR=R-track-8;
+    const tx=cx+Math.cos(a)*tipR, ty=cy+Math.sin(a)*tipR;
+    const bx=cx-Math.cos(a)*22,   by=cy-Math.sin(a)*22;
+    ctx.save(); ctx.shadowColor='rgba(239,68,68,.5)'; ctx.shadowBlur=10;
+    const ng=ctx.createLinearGradient(bx,by,tx,ty);
+    ng.addColorStop(0,'#fb7185'); ng.addColorStop(1,'#dc2626');
+    ctx.strokeStyle=ng; ctx.lineWidth=5; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(bx,by); ctx.lineTo(tx,ty); ctx.stroke();
+    ctx.restore();
+    // cubo central
+    ctx.beginPath(); ctx.fillStyle='#ef4444'; ctx.arc(cx,cy,13,0,2*Math.PI); ctx.fill();
+    ctx.beginPath(); ctx.fillStyle='rgba(255,255,255,.85)'; ctx.arc(cx,cy,5,0,2*Math.PI); ctx.fill();
+  }
+
+  return {resize, render, ptToT, get geom(){return {cx,cy,R,track}}};
+}
+
+let dials = {};
+function setupDials(){
+  ['Seer','Guess','Reveal'].forEach(k=>{
+    const cv=document.getElementById('canvas'+k);
+    dials[k]=makeDial(cv);
+    dials[k].resize();
+  });
+}
+
+/* ===================================================================== */
+/* === 6. LOOP DE ANIMAÇÃO + FÍSICA === */
+/* ===================================================================== */
+let activeDialKey=null;       // qual canvas renderizar
+let coverTargetProg=0, coverAnimating=false, coverOnDone=null;
+
+function physics(){
+  // giro da roleta (fase vidente)
+  if(dial.spinning){
+    dial.t += dial.v;
+    dial.v *= 0.975;                       // desaceleração
+    if(dial.t < TMIN){ dial.t = TMIN + (TMIN-dial.t); dial.v = -dial.v*0.7; }
+    if(dial.t > TMAX){ dial.t = TMAX - (dial.t-TMAX); dial.v = -dial.v*0.7; }
+    if(Math.abs(dial.v) < 0.0009){
+      dial.spinning=false; dial.v=0;
+      dial.target = dial.t;                // onde parou é o alvo
+      dial.showBands=true; dial.coverProg=1; dial.spun=true;
+      onSpinDone();
+    }
+  }
+  // animação da tampa abrindo
+  if(coverAnimating){
+    const d = coverTargetProg - dial.coverProg;
+    dial.coverProg += d*0.10;
+    if(Math.abs(d) < 0.004){ dial.coverProg=coverTargetProg; coverAnimating=false; if(coverOnDone){const f=coverOnDone;coverOnDone=null;f();} }
+  }
+}
+function loop(){
+  physics();
+  if(activeDialKey && dials[activeDialKey]) dials[activeDialKey].render();
+  requestAnimationFrame(loop);
+}
+
+/* ===================================================================== */
+/* === 7. INTERAÇÃO COM OS CANVASES (girar / arrastar) === */
+/* ===================================================================== */
+function bindCanvas(key){
+  const cv=document.getElementById('canvas'+key);
+  let dragging=false;
+
+  // Só o modo 'drag' (adivinhação) permite mexer na haste com a mão.
+  // No modo Vidente o alvo é definido APENAS pelo botão "Girar Roleta".
+  const down=(e)=>{
+    if(dial.interact!=='drag') return;
+    e.preventDefault();
+    const p=getPt(e);
+    dragging=true; dial.spinning=false;
+    dial.t=dials[key].ptToT(p.x,p.y);
+    refreshGuessHint();
+  };
+  const move=(e)=>{
+    if(!dragging) return; e.preventDefault();
+    const p=getPt(e);
+    dial.t=dials[key].ptToT(p.x,p.y);
+  };
+  const up=()=>{ dragging=false; };
+  function getPt(e){ const t=e.touches?e.touches[0]:e; return {x:t.clientX,y:t.clientY}; }
+
+  cv.addEventListener('mousedown',down);  cv.addEventListener('touchstart',down,{passive:false});
+  window.addEventListener('mousemove',move); window.addEventListener('touchmove',move,{passive:false});
+  window.addEventListener('mouseup',up);   window.addEventListener('touchend',up);
+}
+
+/* ===================================================================== */
+/* === 8. NAVEGAÇÃO ENTRE TELAS E FASES === */
+/* ===================================================================== */
+const $ = id => document.getElementById(id);
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('show', s.id===id));
+}
+function showPhase(id){
+  document.querySelectorAll('.phase').forEach(p=>p.classList.toggle('show', p.id===id));
+}
+function vibrate(ms){ if(navigator.vibrate){ try{navigator.vibrate(ms);}catch(e){} } }
+
+/* ===================================================================== */
+/* === 9. PLACAR === */
+/* ===================================================================== */
+function updateScoreboard(){
+  const pills=$('scorePills');
+  if(state.phase==='home'||state.phase==='setup'){ pills.hidden=true; $('btnNew').hidden=true; return; }
+  pills.hidden=false; $('btnNew').hidden=false;
+  // Modo Livre: sem placar acumulado, mostra só a rodada / quem está na vez.
+  if(state.meta==='free'){
+    if(state.mode==='dupla'){
+      pills.innerHTML = `<span class="pill coop"><span class="dotc" style="background:var(--teal)"></span>Modo Livre</span>`;
+    } else {
+      const t=state.teams[state.activeIndex];
+      const cls = state.activeIndex===0?'teamA':'teamB';
+      pills.innerHTML = `<span class="pill ${cls} active"><span class="dotc"></span>Vez: ${esc(t.name)}</span>`;
+    }
+    return;
+  }
+  if(state.mode==='dupla'){
+    pills.innerHTML = `<span class="pill coop"><span class="dotc" style="background:var(--teal)"></span>Sintonia <span class="n">${state.coopScore}</span></span>`;
+  } else {
+    const a=state.teams[0], b=state.teams[1];
+    pills.innerHTML =
+      `<span class="pill teamA ${state.activeIndex===0?'active':''}"><span class="dotc"></span>${esc(a.name)} <span class="n">${a.score}</span></span>`+
+      `<span class="pill teamB ${state.activeIndex===1?'active':''}"><span class="dotc"></span>${esc(b.name)} <span class="n">${b.score}</span></span>`;
+  }
+}
+function esc(s){ return (s||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+
+/* ===================================================================== */
+/* === 10. FLUXO DE RODADA === */
+/* ===================================================================== */
+function startGame(){
+  state.round=0; state.coopScore=0;
+  state.teams[0].score=0; state.teams[1].score=0;
+  buildDeck();
+  state.phase='game';
+  showScreen('screenGame');
+  updateScoreboard();
+  nextRound();
+}
+
+function nextRound(){
+  state.round++;
+  state.activeIndex = (state.round-1)%2;
+  drawCard();
+  // reset do mostrador
+  dial.t=0.5; dial.target=0.5; dial.v=0; dial.spinning=false; dial.spun=false;
+  dial.showBands=false; dial.coverProg=1; dial.interact='none';
+  $('btnHide').disabled=true;
+  $('winnerBox').innerHTML='';
+
+  // preencher textos
+  fillConcepts();
+  setTurnBanner();
+  updateScoreboard();
+
+  // tela de passar o celular
+  if(state.mode==='dupla'){
+    $('handoffBig').textContent = `Vez de ${state.players[state.activeIndex]}`;
+    $('handoffSub').textContent = `${state.players[state.activeIndex]} será o Vidente. Passe o celular — os outros não podem espiar!`;
+  }else{
+    $('handoffBig').textContent = `Vez do ${state.teams[state.activeIndex].name}`;
+    $('handoffSub').textContent = `Escolham um Vidente no time. Só ele vê a tela; o resto do time vai adivinhar.`;
+  }
+  activeDialKey=null;
+  showPhase('phHandoff');
+}
+
+function fillConcepts(){
+  const [a,b]=state.card;
+  ['seer','clue','guess'].forEach(p=>{
+    $(p+'A').textContent=a; $(p+'B').textContent=b;
+  });
+}
+function setTurnBanner(){
+  const badge=$('turnBadge'), text=$('turnText');
+  badge.className='badge '+(state.activeIndex===0?'teal':'violet');
+  if(state.mode==='dupla'){
+    badge.textContent='VIDENTE';
+    text.textContent = state.players[state.activeIndex];
+  }else{
+    badge.textContent='NA VEZ';
+    text.textContent = state.teams[state.activeIndex].name;
+  }
+  $('roundTag').textContent='Rodada '+state.round;
+}
+
+/* --- countdown "feche os olhos" antes de mostrar o alvo --- */
+function runCountdown(done){
+  const ov=$('countdown'), num=$('cdNum');
+  let n=3; ov.classList.add('show');
+  const tick=()=>{
+    num.textContent=n; num.classList.remove('beat'); void num.offsetWidth; num.classList.add('beat');
+    vibrate(20);
+    n--;
+    if(n>=0){ setTimeout(tick,800); }
+    else { setTimeout(()=>{ ov.classList.remove('show'); done(); }, 650); }
+  };
+  tick();
+}
+
+/* --- FASE 1: vidente --- */
+function enterSeer(){
+  state.phase='seer';
+  if(typeof setEditing==='function') setEditing(false);
+  dial.t=0.5; dial.spun=false; dial.showBands=false; dial.coverProg=1; dial.interact='none';
+  $('btnHide').disabled=true;
+  $('seerHint').innerHTML='Gire a roleta para sortear o alvo secreto 🎯';
+  activeDialKey='Seer';
+  showPhase('phSeer');
+  dials.Seer.resize();
+}
+function spinNow(){
+  if(dial.spinning) return;
+  dial.v = (Math.random()<0.5?-1:1)*(0.030+Math.random()*0.018);
+  dial.spinning=true;
+}
+function onSpinDone(){
+  vibrate(30);
+  $('btnHide').disabled=false;
+  $('seerHint').innerHTML='Memorize a posição da zona <b>verde</b> e esconda 👇';
+}
+
+/* --- FASE 2: dica --- */
+function enterClue(){
+  state.phase='clue';
+  dial.interact='none'; activeDialKey=null;
+  showPhase('phClue');
+}
+
+/* --- FASE 3: adivinhação --- */
+function enterGuess(){
+  state.phase='guess';
+  dial.t=0.5; dial.showBands=true; dial.coverProg=0; dial.interact='drag';
+  $('guessLabel').textContent = state.mode==='dupla'
+    ? 'Arraste o ponteiro' : `${state.teams[state.activeIndex].name}: arrastem juntos`;
+  activeDialKey='Guess';
+  refreshGuessHint();
+  showPhase('phGuess');
+  dials.Guess.resize();
+}
+function refreshGuessHint(){
+  $('guessHint').innerHTML='Arraste o <b>ponteiro vermelho</b> e toque em Revelar';
+}
+
+/* --- FASE 4: revelação --- */
+function enterReveal(){
+  state.phase='reveal';
+  dial.interact='none';
+  activeDialKey='Reveal';
+  showPhase('phReveal');
+  dials.Reveal.resize();
+
+  const dt = dial.t - dial.target;
+  const pts = scoreFor(dt);
+  state.lastPoints = pts;
+  const free = state.meta==='free';
+
+  // aplica pontos (exceto no modo Livre)
+  if(!free){
+    if(state.mode==='dupla') state.coopScore += pts;
+    else state.teams[state.activeIndex].score += pts;
+  }
+  updateScoreboard();
+
+  // textos do placar grande
+  const V = {4:['Na mosca! 🎯','Vocês estão na mesma frequência.'],
+             3:['Perto demais! ✨','Quase no centro — leitura ótima.'],
+             2:['Quase lá 👍','Boa dedução, faltou pouco.'],
+             1:['Longe, mas valeu 🤏','Pegou a direção certa.'],
+             0:['Errou feio 😅','Faltou sintonia dessa vez!']};
+  const EMO = {4:'🎯',3:'✨',2:'👍',1:'🤏',0:'😅'};
+  const ptsEl=$('revPts');
+  if(free){ ptsEl.textContent=EMO[pts]; ptsEl.className='pts emoji'+(pts===0?' s0':''); }
+  else    { ptsEl.textContent='+'+pts;  ptsEl.className='pts'+(pts===0?' s0':''); }
+  $('revVerdict').textContent=V[pts][0];
+  $('revDetail').textContent=V[pts][1];
+
+  // anima a tampa abrindo + háptico
+  dial.coverProg=0; coverTargetProg=1; coverAnimating=true;
+  vibrate(pts>=3?[40,40,80]:30);
+
+  // checa vitória (não no modo Livre)
+  if(free){ $('winnerBox').innerHTML=''; $('btnNext').textContent='Próxima Rodada →'; }
+  else checkWinner();
+}
+
+function checkWinner(){
+  let win=null;
+  if(state.mode==='dupla'){
+    if(state.meta!==999 && state.coopScore>=state.meta)
+      win={t:'🏆 Meta batida!', s:`Vocês somaram ${state.coopScore} pontos de sintonia.`};
+  }else{
+    const a=state.teams[0], b=state.teams[1];
+    if(state.meta!==999){
+      if(a.score>=state.meta && a.score>=b.score) win={t:`🏆 ${esc(a.name)} venceu!`, s:`${a.score} × ${b.score}`};
+      else if(b.score>=state.meta && b.score>=a.score) win={t:`🏆 ${esc(b.name)} venceu!`, s:`${b.score} × ${a.score}`};
+    }
+  }
+  if(win){
+    $('winnerBox').innerHTML=`<div class="winner"><div class="t">${win.t}</div><div class="s">${win.s} · toque em ↻ pra recomeçar</div></div>`;
+    $('btnNext').textContent='Continuar jogando →';
+    vibrate([60,50,60,50,120]);
+  } else {
+    $('btnNext').textContent='Próxima Rodada →';
+  }
+}
+
+/* ===================================================================== */
+/* === 11. WIRING DOS BOTÕES === */
+/* ===================================================================== */
+// HOME → escolher modo
+document.querySelectorAll('.mode-card').forEach(c=>{
+  c.addEventListener('pointermove',e=>{ const r=c.getBoundingClientRect(); c.style.setProperty('--mx',((e.clientX-r.left)/r.width*100)+'%'); });
+  c.addEventListener('click',()=>{
+    state.mode=c.dataset.mode;
+    state.phase='setup';
+    $('setupDupla').hidden = state.mode!=='dupla';
+    $('setupFamilia').hidden = state.mode==='dupla';
+    $('setupTitle').textContent = state.mode==='dupla' ? 'Modo Dupla 💞' : 'Modo Família 👨‍👩‍👧‍👦';
+    $('setupSub').textContent = state.mode==='dupla'
+      ? 'Cooperativo: vocês somam pontos juntos a cada rodada.'
+      : 'Dois times se revezam dando dicas e adivinhando.';
+    updateScoreboard();
+    showScreen('screenSetup');
+  });
+});
+
+// META segment
+$('metaSeg').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  $('metaSeg').querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  state.meta = b.dataset.meta==='free' ? 'free' : parseInt(b.dataset.meta,10);
+  const help = state.meta==='free'
+      ? 'Modo avulso: sem placar acumulado. Jogue rodada após rodada só pela diversão.'
+      : state.meta===999
+        ? 'Sem fim: o placar acumula para sempre, sem vencedor.'
+        : 'Jogue até alguém alcançar a meta de pontos.';
+  $('metaHelp').textContent = help;
+});
+
+// SETUP → começar
+$('btnStart').addEventListener('click',()=>{
+  if(state.mode==='dupla'){
+    state.players=[ ($('p1').value.trim()||'Jogador 1'), ($('p2').value.trim()||'Jogador 2') ];
+  }else{
+    state.teams[0].name=$('t1').value.trim()||'Time Verde';
+    state.teams[1].name=$('t2').value.trim()||'Time Roxo';
+  }
+  startGame();
+});
+$('btnBackHome').addEventListener('click',()=>{ state.phase='home'; updateScoreboard(); showScreen('screenHome'); });
+
+// HANDOFF → countdown → vidente
+$('btnIamSeer').addEventListener('click',()=>{
+  runCountdown(()=> enterSeer());
+});
+// FASE 1
+$('btnSpin').addEventListener('click', spinNow);
+$('btnHide').addEventListener('click', ()=>{ if(dial.spun) enterClue(); });
+
+// --- Trocar / Editar a escala (discreto, tela do Vidente) ---
+let editingScale=false;
+const seerA=$('seerA'), seerB=$('seerB');
+function cleanWord(s){ return (s||'').replace(/\s+/g,' ').trim().slice(0,22); }
+function setEditing(on){
+  editingScale=on;
+  [seerA,seerB].forEach(el=>{
+    el.contentEditable = on ? 'true' : 'false';
+    el.closest('.concept').classList.toggle('editing', on);
+  });
+  $('btnEdit').textContent = on ? '✔️ Salvar' : '✏️ Editar';
+  $('btnEdit').classList.toggle('live', on);
+  if(on){ seerA.focus(); }
+}
+function saveEditing(){
+  const a=cleanWord(seerA.textContent), b=cleanWord(seerB.textContent);
+  state.card=[ a||state.card[0], b||state.card[1] ];
+  setEditing(false);
+  fillConcepts();
+}
+$('btnEdit').addEventListener('click', ()=> editingScale ? saveEditing() : setEditing(true));
+$('btnSwap').addEventListener('click', ()=>{
+  if(editingScale) return;
+  drawCard(); fillConcepts();
+  const c=$('btnSwap'); c.animate?.([{transform:'rotate(0)'},{transform:'rotate(360deg)'}],{duration:400,easing:'ease'});
+});
+// Enter confirma a edição (sem quebrar linha)
+[seerA,seerB].forEach(el=>el.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){ e.preventDefault(); saveEditing(); }
+}));
+
+// FASE 2
+$('btnToGuess').addEventListener('click', enterGuess);
+// FASE 3
+$('btnReveal').addEventListener('click', enterReveal);
+// FASE 4
+$('btnNext').addEventListener('click', nextRound);
+
+// voltar ao início (título ou botão ↻)
+function goHome(){
+  const inGame = state.phase==='game' || ['seer','clue','guess','reveal'].includes(state.phase);
+  if(inGame && !confirm('Voltar ao início? A partida atual será encerrada.')) return;
+  state.phase='home'; activeDialKey=null;
+  document.querySelectorAll('.phase').forEach(p=>p.classList.remove('show'));
+  updateScoreboard(); showScreen('screenHome');
+}
+$('btnNew').addEventListener('click', goHome);
+$('logoHome').addEventListener('click', goHome);
+
+// AJUDA modal
+const help=$('helpModal');
+$('btnHelp').addEventListener('click',()=>help.classList.add('show'));
+help.querySelectorAll('[data-close]').forEach(el=>el.addEventListener('click',()=>help.classList.remove('show')));
+
+/* ===================================================================== */
+/* === 12. BOOT === */
+/* ===================================================================== */
+function boot(){
+  setupDials();
+  ['Seer','Guess','Reveal'].forEach(bindCanvas);
+  let rt;
+  const refit = ()=>{ clearTimeout(rt); rt=setTimeout(()=>Object.values(dials).forEach(d=>d.resize()),60); };
+  window.addEventListener('resize', refit);
+  window.addEventListener('orientationchange', ()=>setTimeout(refit,300));
+  if(window.visualViewport){ window.visualViewport.addEventListener('resize', refit); }
+  loop();
+}
+boot();
+</script>
+</body>
+</html>
